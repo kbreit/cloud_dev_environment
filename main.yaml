@@ -1,0 +1,144 @@
+- name: Create Droplet in Digital Ocean
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - include_vars:
+        file: vars
+    - name: Query one tag
+      digital_ocean_tag_facts:
+        oauth_token: '{{do_api_token}}'
+        tag_name: development
+      register: one_tag
+    - set_fact:
+        dev_droplet_id: '{{one_tag.data.resources.droplets.last_tagged.id}}'
+        droplet_exist: yes
+      when: one_tag.data.resources.count == 1
+    - name: Check for SSH key
+      digital_ocean_sshkey_facts:
+        oauth_token: "{{do_api_token}}"
+      register: keys
+    - set_fact:
+        ssh_key_id: "{{item.id}}"
+      loop: "{{ keys.ansible_facts.ssh_keys }}"
+      when: item.name == do_ssh_key_name
+    - name: Create SSH key
+      digital_ocean_sshkey:
+        oauth_token: "{{do_api_token}}"
+        name: "{{do_ssh_key_name}}"
+        ssh_pub_key: "{{do_ssh_pub_key}}"
+        state: present
+      register: new_ssh_key_id
+      when: ssh_key_id is not defined
+    - debug:
+        msg: "{{new_ssh_key_id}}"
+    - name: Get new SSH key ID
+      set_fact:
+        ssh_key_id: "{{new_ssh_key_id.id}}"
+      when: new_ssh_key_id.id is defined
+    - name: Create Droplet
+      digital_ocean:
+        api_token: "{{do_api_token}}"
+        state: present
+        command: droplet
+        name: "{{do_name}}"
+        size_id: "{{do_size}}"
+        region_id: "{{do_region}}"
+        image_id: "{{do_image_id}}"
+        wait_timeout: 600
+        ssh_key_ids:
+          - "{{ssh_key_id}}"
+      register: droplet_info
+    - debug:
+        msg: "{{droplet_info}}"
+    - set_fact:
+        droplet_id: "{{droplet_info.droplet.id}}"
+        droplet_ip: "{{droplet_info.droplet.ip_address}}"
+    - debug:
+        msg: "'{{droplet_id}}' - '{{droplet_ip}}'"
+    - name: Assign tag to droplet
+      digital_ocean_tag:
+        api_token: "{{do_api_token}}"
+        state: present
+        name: development
+        resource_id: "{{droplet_id}}"
+    - name: Register domain with AWS Route 53
+      route53:
+        aws_access_key: "{{aws_access_key}}"
+        aws_secret_key: "{{aws_secret_key}}"
+        state: present
+        zone: "{{aws_zone}}"
+        record: "'{{aws_record}}.{{aws_zone}}'"
+        type: A
+        ttl: 7200
+        value: "{{droplet_ip}}"
+        wait: yes
+        wait_timeout: 300
+      register: dns_entry
+    - debug:
+        msg: "{{dns_entry}}"
+    - set_fact:
+        fqdn: "{{aws_record}}.{{aws_zone}}"
+    - add_host:
+        name: "{{fqdn}}"
+        groups: do
+      changed_when: False
+
+- name: Provision development droplet
+  hosts: do
+  remote_user: root
+  gather_facts: False
+  vars:
+    ansible_ssh_private_key_file: "{{lookup('file', ssh_key_path)}}"
+  pre_tasks:
+    - name: Wait for port 22 to become available
+      local_action: "wait_for port=22 host={{inventory_hostname}}"
+    - name: 'Install Python'
+      raw: apt-get -y install python
+  tasks:
+    - include_vars:
+        file: vars
+    - name: Create user
+      user:
+        name: "{{username}}"
+        shell: /bin/bash
+    - name: Create .ssh directory
+      file:
+        path: "~{{username}}/.ssh"
+        state: directory
+        owner: "{{username}}"
+        group: "{{username}}"
+        mode: 0700
+    - name: Upload SSH key
+      copy:
+        src: "{{ssh_key_path}}"
+        dest: "~{{username}}/.ssh"
+        owner: "{{username}}"
+        group: "{{username}}"
+        mode: 0700
+    - name: Upload SSH public key
+      authorized_key:
+        user: kbreit
+        state: present
+        key: "{{lookup('file', public_key_file)}}"
+    - name: Install apt Python libraries
+      command: apt-get -y install python-apt python3-apt
+    - name: Install programs
+      apt:
+        state: present
+        name: "{{packages}}"
+      vars:
+        packages:
+          - tmux
+          - git
+          - vim
+    - name: Clone git repositories
+      git:
+        dest: "~/"
+        repo: "{{repos}}"
+      vars:
+        repos:
+          - git@github.com:kbreit/ansible-playbooks.git
+          - git@github.com:kbreit/ansible.git
+    - name: Add git remote for Ansible
+      command: git --work-tree ~/ansible remote add upstream git@github.com:ansible/ansible.git
