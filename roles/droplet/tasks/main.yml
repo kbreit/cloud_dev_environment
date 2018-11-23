@@ -1,0 +1,48 @@
+---
+# tasks file for droplet
+- name: Check for SSH key
+  digital_ocean_sshkey_facts:
+    oauth_token: "{{do_api_token}}"
+  register: keys
+- set_fact:
+    ssh_key_id: "{{item.id}}"
+  loop: "{{ keys.ansible_facts.ssh_keys }}"
+- name: Create SSH key
+  digital_ocean_sshkey:
+    oauth_token: "{{do_api_token}}"
+    name: "{{do_ssh_key_name}}"
+    ssh_pub_key: "{{do_ssh_pub_key}}"
+    state: present
+  register: new_ssh_key_id
+- debug:
+    msg: "{{new_ssh_key_id}}"
+- name: Get new SSH key ID
+  set_fact:
+    ssh_key_id: "{{new_ssh_key_id.id}}"
+- name: Create Droplet
+  digital_ocean:
+    api_token: "{{do_api_token}}"
+    state: present
+    command: droplet
+    name: "{{do_name}}"
+    size_id: "{{do_size_id}}"
+    region_id: "{{do_region_id}}"
+    image_id: "{{do_image_id}}"
+    wait_timeout: 600
+    ssh_key_ids:
+      - "{{ssh_key_id}}"
+  register: droplet_info
+- debug:
+    msg: "{{droplet_info}}"
+- set_fact:
+    droplet_id: "{{droplet_info.droplet.id}}"
+    droplet_ip: "{{droplet_info.droplet.ip_address}}"
+- debug:
+    msg: "'{{droplet_id}}' - '{{droplet_ip}}'"
+- name: Assign tag to droplet
+  digital_ocean_tag:
+    api_token: "{{do_api_token}}"
+    state: present
+    name: development
+    resource_id: "{{droplet_id}}"
+    

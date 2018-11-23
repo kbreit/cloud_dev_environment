@@ -1,0 +1,19 @@
+---
+# tasks file for route53
+- name: Register domain with AWS Route 53
+  route53:
+    aws_access_key: "{{aws_access_key}}"
+    aws_secret_key: "{{aws_secret_key}}"
+    state: present
+    zone: "{{aws_zone}}"
+    record: "'{{aws_record}}.{{aws_zone}}'"
+    type: A
+    ttl: 7200
+    value: "{{droplet_ip}}"
+    wait: yes
+    wait_timeout: 300
+  register: dns_entry
+- debug:
+    msg: "{{dns_entry}}"
+- set_fact:
+    fqdn: "{{aws_record}}.{{aws_zone}}"
