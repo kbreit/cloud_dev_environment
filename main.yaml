@@ -5,7 +5,7 @@
   tasks:
     - include_vars:
         file: vars
-    - name: Query one tag
+    - name: Query development tag
       digital_ocean_tag_facts:
         oauth_token: '{{do_api_token}}'
         tag_name: development
@@ -16,7 +16,6 @@
       when: one_tag.data.resources.count == 1
     - include_role:
         name: droplet
-      when: droplet_exists is not defined
     - include_role:
         name: route53
       when: droplet_exists is not defined

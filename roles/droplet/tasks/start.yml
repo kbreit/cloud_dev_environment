@@ -1,0 +1,8 @@
+---
+- name: Create Droplet
+  digital_ocean:
+    api_token: "{{do_api_token}}"
+    state: active
+    command: droplet
+    id: "{{dev_droplet_id}}"
+  register: droplet_info
