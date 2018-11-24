@@ -1,1 +1,3 @@
 *retry
+.terraform
+.DS_Store
