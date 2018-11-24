@@ -1,3 +1,5 @@
 *retry
 .terraform
 .DS_Store
+*.tfstate
+*.tfplan
