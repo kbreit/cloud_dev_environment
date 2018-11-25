@@ -2,7 +2,7 @@ resource "digitalocean_droplet" "devel" {
     image = "ubuntu-18-04-x64"
     name = "devel"
     region = "nyc1"
-    size = "1gb"
+    size = "s-1vcpu-1gb"
     private_networking = false
     tags = ["development"]
     ssh_keys = [ 

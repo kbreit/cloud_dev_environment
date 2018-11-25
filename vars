@@ -1,6 +1,6 @@
 ---
 do_name: dev
-do_size_id: 1gb
+do_size_id: s-1vcpu-1gb
 do_region_id: nyc1
 do_image_id: ubuntu-18-04-x64
 aws_zone: kb-lab.net
