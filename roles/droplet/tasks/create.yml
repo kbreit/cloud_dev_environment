@@ -1,5 +1,4 @@
 ---
-# tasks file for droplet
 - name: Check for SSH key
   digital_ocean_sshkey_facts:
     oauth_token: "{{do_api_token}}"
@@ -7,9 +6,6 @@
 - set_fact:
     ssh_key_id: "{{item.id}}"
   loop: "{{ keys.ansible_facts.ssh_keys }}"
-  when: keys.ansible_facts.ssh_keys is defined
-- debug:
-    var: ssh_key_id
 - name: Create SSH key
   digital_ocean_sshkey:
     oauth_token: "{{do_api_token}}"
@@ -17,14 +13,11 @@
     ssh_pub_key: "{{do_ssh_pub_key}}"
     state: present
   register: new_ssh_key_id
-  when: ssh_key_id is not defined
 - debug:
     msg: "{{new_ssh_key_id}}"
-  when: ssh_key_id is not defined
 - name: Get new SSH key ID
   set_fact:
     ssh_key_id: "{{new_ssh_key_id.id}}"
-  when: ssh_key_id is not defined
 - name: Create Droplet
   digital_ocean:
     api_token: "{{do_api_token}}"
@@ -35,12 +28,11 @@
     region_id: "{{do_region_id}}"
     image_id: "{{do_image_id}}"
     wait_timeout: 600
-    unique_name: yes
     ssh_key_ids:
       - "{{ssh_key_id}}"
   register: droplet_info
-# - debug:
-#     msg: "{{droplet_info}}"
+- debug:
+    msg: "{{droplet_info}}"
 - set_fact:
     droplet_id: "{{droplet_info.droplet.id}}"
     droplet_ip: "{{droplet_info.droplet.ip_address}}"
@@ -52,3 +44,4 @@
     state: present
     name: development
     resource_id: "{{droplet_id}}"
+    

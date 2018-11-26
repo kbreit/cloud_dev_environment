@@ -24,11 +24,6 @@
         groups: do
       changed_when: False
       when: fqdn is defined
-    - add_host:
-        name: "{{aws_record}}.{{aws_zone}}"
-        groups: do
-      changed_when: False
-      when: fqdn is not defined
 
 - name: Provision development droplet
   hosts: do
