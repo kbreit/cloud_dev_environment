@@ -1,0 +1,23 @@
+- name: Create Droplet in Digital Ocean
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Export vars for Terraform
+      shell: 'terraform init /home/kbreit/projects/cloud_dev_environment'
+      register: tf_init
+    - debug:
+        var: tf_init
+    - name: Terraform plan
+      terraform:
+        state: present
+        project_path: '/home/kbreit/projects/cloud_dev_environment/'
+        backend_config:
+          - do_token: '{{do_api_token}}'
+          - pub_key: '{{do_ssh_pub_key}}'
+          - pvt_key: abc123
+          - ssh_fingerprint: 12:34:56
+      check_mode: yes
+      register: tf_init
+    # - debug:
+    #     var: tf_init
