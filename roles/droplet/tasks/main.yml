@@ -39,8 +39,8 @@
     ssh_key_ids:
       - "{{ssh_key_id}}"
   register: droplet_info
-- debug:
-    msg: "{{droplet_info}}"
+# - debug:
+#     msg: "{{droplet_info}}"
 - set_fact:
     droplet_id: "{{droplet_info.droplet.id}}"
     droplet_ip: "{{droplet_info.droplet.ip_address}}"
