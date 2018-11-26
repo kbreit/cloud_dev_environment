@@ -2,4 +2,4 @@ all:
   children:
     do:
       hosts:
-        ansible_host: dev.digitalocean.kb-lab.net
+        dev.digitalocean.kb-lab.net

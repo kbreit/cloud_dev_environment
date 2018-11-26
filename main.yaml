@@ -5,31 +5,31 @@
   tasks:
     - include_vars:
         file: vars
-    - name: Query one tag
-      digital_ocean_tag_facts:
-        oauth_token: '{{do_api_token}}'
-        tag_name: development
-      register: one_tag
-    - set_fact:
-        dev_droplet_id: '{{one_tag.data.resources.droplets.last_tagged.id}}'
-        droplet_exists: yes
-      when: one_tag.data.resources.count == 1
-    - include_role:
-        name: droplet
-      when: droplet_exists is not defined
-    - include_role:
-        name: route53
-      when: droplet_exists is not defined
-    - add_host:
-        name: "{{fqdn}}"
-        groups: do
-      changed_when: False
-      when: fqdn is defined
-    - add_host:
-        name: "{{aws_record}}.{{aws_zone}}"
-        groups: do
-      changed_when: False
-      when: fqdn is not defined
+    # - name: Query one tag
+    #   digital_ocean_tag_facts:
+    #     oauth_token: '{{do_api_token}}'
+    #     tag_name: development
+    #   register: one_tag
+    # - set_fact:
+        # dev_droplet_id: '{{one_tag.data.resources.droplets.last_tagged.id}}'
+        # droplet_exists: yes
+      # when: one_tag.data.resources.count == 1
+    # - include_role:
+    #     name: droplet
+    #   when: droplet_exists is not defined
+    # - include_role:
+    #     name: route53
+    #   when: droplet_exists is not defined
+    # - add_host:
+    #     name: "{{fqdn}}"
+    #     groups: do
+    #   changed_when: False
+    #   when: fqdn is defined
+    # - add_host:
+    #     name: "{{aws_record}}.{{aws_zone}}"
+    #     groups: do
+    #   changed_when: False
+    #   when: fqdn is not defined
 
 - name: Provision development droplet
   hosts: do
@@ -64,10 +64,19 @@
         group: "{{username}}"
         mode: 0700
     - name: Upload SSH public key
+      copy:
+        src: "{{public_key_file}}"
+        dest: "~{{username}}/.ssh"
+        owner: "{{username}}"
+        group: "{{username}}"
+        mode: 0700
+      become_user: '{{username}}'
+    - name: Create authorized key file
       authorized_key:
         user: kbreit
         state: present
         key: "{{lookup('file', public_key_file)}}"
+      become_user: '{{username}}'
     - name: Install apt Python libraries
       command: apt-get -y install python-apt python3-apt
     - name: Install programs
@@ -79,13 +88,33 @@
           - tmux
           - git
           - vim
+          - python3-venv
+- name: Provision development environment as user
+  hosts: do
+  remote_user: '{{username}}'
+  gather_facts: False
+  vars_files:
+    - vars
+  vars:
+    ansible_ssh_private_key_file: "{{lookup('file', ssh_key_path)}}"
+  tasks:
+    - name: Start ssh-agent
+      shell: |
+        eval `ssh-agent -s`
+        ssh-add
+        exit 0
+    - name: Create directory
+      file:
+        path: ~/projects
+        state: directory
     - name: Clone git repositories
       git:
-        dest: "~/"
-        repo: "{{repos}}"
-      vars:
-        repos:
-          - git@github.com:kbreit/ansible-playbooks.git
-          - git@github.com:kbreit/ansible.git
+        dest: "~{{username}}/projects/{{item.name}}"
+        repo: "{{item.repo}}"
+        accept_hostkey: yes
+        key_file: "~/.ssh/{{private_key_name}}"
+      loop:
+        - {name: 'ansible-playbook', repo: 'git@github.com:kbreit/ansible-playbooks.git'}
+        - {name: 'ansible', repo: 'git@github.com:kbreit/ansible.git'}
     - name: Add git remote for Ansible
-      command: git --work-tree ~/ansible remote add upstream git@github.com:ansible/ansible.git
+      command: git -C ~/projects/ansible/ remote add upstream git@github.com:ansible/ansible.git

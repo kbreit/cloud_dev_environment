@@ -7,6 +7,9 @@
 - set_fact:
     ssh_key_id: "{{item.id}}"
   loop: "{{ keys.ansible_facts.ssh_keys }}"
+  when: keys.ansible_facts.ssh_keys is defined
+- debug:
+    var: ssh_key_id
 - name: Create SSH key
   digital_ocean_sshkey:
     oauth_token: "{{do_api_token}}"
@@ -14,11 +17,14 @@
     ssh_pub_key: "{{do_ssh_pub_key}}"
     state: present
   register: new_ssh_key_id
+  when: ssh_key_id is not defined
 - debug:
     msg: "{{new_ssh_key_id}}"
+  when: ssh_key_id is not defined
 - name: Get new SSH key ID
   set_fact:
     ssh_key_id: "{{new_ssh_key_id.id}}"
+  when: ssh_key_id is not defined
 - name: Create Droplet
   digital_ocean:
     api_token: "{{do_api_token}}"

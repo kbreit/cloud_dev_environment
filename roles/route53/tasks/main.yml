@@ -6,10 +6,11 @@
     aws_secret_key: "{{aws_secret_key}}"
     state: present
     zone: "{{aws_zone}}"
-    record: "'{{aws_record}}.{{aws_zone}}'"
+    record: "{{aws_record}}.{{aws_zone}}"
     type: A
     ttl: 7200
     value: "{{droplet_ip}}"
+    overwrite: true
     wait: yes
     wait_timeout: 300
   register: dns_entry
