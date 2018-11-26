@@ -49,6 +49,8 @@
       user:
         name: "{{username}}"
         shell: /bin/bash
+        createhome: yes
+      register: create_user
     - name: Create .ssh directory
       file:
         path: "~{{username}}/.ssh"
@@ -56,6 +58,7 @@
         owner: "{{username}}"
         group: "{{username}}"
         mode: 0700
+      when: create_user.changed == True
     - name: Upload SSH key
       copy:
         src: "{{ssh_key_path}}"
@@ -63,6 +66,7 @@
         owner: "{{username}}"
         group: "{{username}}"
         mode: 0700
+      when: create_user.changed == True
     - name: Upload SSH public key
       copy:
         src: "{{public_key_file}}"
@@ -71,12 +75,34 @@
         group: "{{username}}"
         mode: 0700
       become_user: '{{username}}'
+      when: create_user.changed == True
     - name: Create authorized key file
       authorized_key:
         user: kbreit
         state: present
         key: "{{lookup('file', public_key_file)}}"
       become_user: '{{username}}'
+      when: create_user.changed == True
+    - name: Create wheel group for sudo
+      group:
+        name: wheel
+        state: present
+      when: create_user.changed == True
+    - name: Allow 'wheel' group to have passwordless sudo
+      lineinfile:
+        dest: /etc/sudoers
+        state: present
+        regexp: "^%wheel"
+        line: '%wheel ALL=(ALL) NOPASSWD: ALL'
+        validate: 'visudo -cf %s'
+      when: create_user.changed == True
+    - name: Add user to wheel group
+      user:
+        name: '{{username}}'
+        groups: wheel
+        append: yes
+        state: present
+      when: create_user.changed == True
     - name: Install apt Python libraries
       command: apt-get -y install python-apt python3-apt
     - name: Install programs
@@ -88,7 +114,20 @@
           - tmux
           - git
           - vim
-          - python3-venv
+          - make
+          - build-essential
+          - libssl-dev
+          - zlib1g-dev
+          - libbz2-dev
+          - libreadline-dev
+          - libsqlite3-dev
+          - wget
+          - curl
+          - libncurses5-dev
+          - libncursesw5-dev
+          - xz-utils
+          - libffi-dev
+          - liblzma-dev
 - name: Provision development environment as user
   hosts: do
   remote_user: '{{username}}'
@@ -116,5 +155,19 @@
       loop:
         - {name: 'ansible-playbook', repo: 'git@github.com:kbreit/ansible-playbooks.git'}
         - {name: 'ansible', repo: 'git@github.com:kbreit/ansible.git'}
+      register: git_clone
     - name: Add git remote for Ansible
       command: git -C ~/projects/ansible/ remote add upstream git@github.com:ansible/ansible.git
+      when: git_clone.changed == True
+    - name: Install pyenv
+      shell: curl -L https://github.com/pyenv/pyenv-installer/raw/master/bin/pyenv-installer | bash
+    - name: Add pyenv information to .bashrc
+      lineinfile:  # This could be changed to blockinfile
+        dest: ~/.bashrc
+        state: present
+        regexp: '{{item.regexp}}'
+        line: '{{item.line}}'
+      loop:
+        - { line: 'export PATH="/home/{{username}}/.pyenv/bin:$PATH"', regexp: '{{username}}/.pyenv'}
+        - { line: 'eval "$(pyenv init -)"', regexp: 'pyenv init'}
+        - { line: 'eval "$(pyenv virtualenv-init -)"', regexp: 'virtualenv-init'}
