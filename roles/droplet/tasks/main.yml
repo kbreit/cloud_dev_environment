@@ -35,6 +35,7 @@
     region_id: "{{do_region_id}}"
     image_id: "{{do_image_id}}"
     wait_timeout: 600
+    unique_name: yes
     ssh_key_ids:
       - "{{ssh_key_id}}"
   register: droplet_info

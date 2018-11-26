@@ -10,26 +10,25 @@
     #     oauth_token: '{{do_api_token}}'
     #     tag_name: development
     #   register: one_tag
-    # - set_fact:
+    - set_fact:
         # dev_droplet_id: '{{one_tag.data.resources.droplets.last_tagged.id}}'
-        # droplet_exists: yes
+        droplet_exists: yes
       # when: one_tag.data.resources.count == 1
-    # - include_role:
-    #     name: droplet
-    #   when: droplet_exists is not defined
-    # - include_role:
-    #     name: route53
-    #   when: droplet_exists is not defined
-    # - add_host:
-    #     name: "{{fqdn}}"
-    #     groups: do
-    #   changed_when: False
-    #   when: fqdn is defined
-    # - add_host:
-    #     name: "{{aws_record}}.{{aws_zone}}"
-    #     groups: do
-    #   changed_when: False
-    #   when: fqdn is not defined
+    - include_role:
+        name: droplet
+    - include_role:
+        name: route53
+      when: droplet_ip is defined
+    - add_host:
+        name: "{{fqdn}}"
+        groups: do
+      changed_when: False
+      when: fqdn is defined
+    - add_host:
+        name: "{{aws_record}}.{{aws_zone}}"
+        groups: do
+      changed_when: False
+      when: fqdn is not defined
 
 - name: Provision development droplet
   hosts: do
@@ -128,6 +127,7 @@
           - xz-utils
           - libffi-dev
           - liblzma-dev
+          - ansible
 - name: Provision development environment as user
   hosts: do
   remote_user: '{{username}}'
@@ -155,6 +155,7 @@
       loop:
         - {name: 'ansible-playbook', repo: 'git@github.com:kbreit/ansible-playbooks.git'}
         - {name: 'ansible', repo: 'git@github.com:kbreit/ansible.git'}
+        - {name: 'cloud_dev_environment', repo: 'git@github.com:kbreit/cloud_dev_environment.git'}
       register: git_clone
     - name: Add git remote for Ansible
       command: git -C ~/projects/ansible/ remote add upstream git@github.com:ansible/ansible.git
